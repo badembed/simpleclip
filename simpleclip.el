@@ -427,9 +427,16 @@ is 'toggle."
   (interactive "r")
   (unless (use-region-p)
     (error "No region to copy"))
-  (simpleclip-set-contents
-   (substring-no-properties
-    (filter-buffer-substring beg end)))
+
+  (setq tmp (filter-buffer-substring beg end))
+  "Check termianal mode or not"
+  (if window-system
+    (simpleclip-set-contents
+      (substring-no-properties tmp))
+    (with-temp-buffer
+      (insert tmp)
+      (call-process-region (point-min) (point-max) "xsel" nil nil nil "-bi")))
+
   (when (and (not (minibufferp))
              (not simpleclip-less-feedback)
              (simpleclip-called-interactively-p 'interactive))
@@ -441,9 +448,16 @@ is 'toggle."
   (interactive "*r")
   (unless (use-region-p)
     (error "No region to cut"))
-  (simpleclip-set-contents
-   (substring-no-properties
-    (filter-buffer-substring beg end)))
+
+  (setq tmp (filter-buffer-substring beg end))
+  "Check termianal mode or not"
+  (if window-system
+    (simpleclip-set-contents
+      (substring-no-properties tmp))
+    (with-temp-buffer
+      (insert tmp)
+      (call-process-region (point-min) (point-max) "xsel" nil nil nil "-bi")))
+
   (delete-region beg end)
     (when (and (not (minibufferp))
                (not simpleclip-less-feedback)
@@ -454,21 +468,27 @@ is 'toggle."
 (defun simpleclip-paste ()
   "Paste the contents of the system clipboard at the point."
   (interactive "*")
-  (let ((str-val (simpleclip-get-contents)))
-    (unless str-val
-      (error "No content to paste"))
-    (cond
-      ((derived-mode-p 'term-mode)
-       (term-send-raw-string str-val))
-      (t
-       (when (use-region-p)
-         (delete-region (region-beginning) (region-end)))
-       (push-mark (point) t)
-       (insert-for-yank str-val)))
-    (when (and (not (minibufferp))
-               (not simpleclip-less-feedback)
-               (simpleclip-called-interactively-p 'interactive))
-      (message "pasted from clipboard"))))
+
+  "Check termianal mode or not"
+  (if window-system
+    (progn (let ((str-val (simpleclip-get-contents)))
+      (unless str-val
+        (error "No content to paste"))
+      (cond
+        ((derived-mode-p 'term-mode)
+         (term-send-raw-string str-val))
+        (t
+         (when (use-region-p)
+           (delete-region (region-beginning) (region-end)))
+         (push-mark (point) t)
+         (insert-for-yank str-val)))
+      (when (and (not (minibufferp))
+                 (not simpleclip-less-feedback)
+                 (simpleclip-called-interactively-p 'interactive))
+        (message "pasted from clipboard"))))
+    (progn (setq tmp (shell-command-to-string "xsel -bo"))
+           (insert-for-yank tmp))
+           (message "pasted from clipboard")))
 
 (provide 'simpleclip)
 
